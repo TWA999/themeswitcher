@@ -10,6 +10,13 @@ themes = {
     "2": "OceanKDE"
 }
 
+# Function to run a command with sudo
+def run_with_sudo(command):
+    try:
+        subprocess.run(['sudo'] + command, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error running command with sudo: {e}")
+
 # Function to check if the theme exists
 def is_theme_available(theme_name):
     try:
@@ -33,7 +40,7 @@ def apply_kde_theme(theme_name):
     else:
         print("Failed to apply theme. Error:\n", result.stderr)
 
-# Function to change wallpaper plugin
+# Function to change wallpaper plugin for user files
 def change_wallpaper_plugin(theme_name):
     file_path = "/home/twa/.config/plasma-org.kde.plasma.desktop-appletsrc"
 
@@ -70,7 +77,7 @@ def change_wallpaper_plugin(theme_name):
     else:
         print("[Containments][44] section not found.")
 
-# Function to change wallpaper based on theme for both monitors
+# Function to change wallpaper image for both monitors (user files)
 def change_wallpaper_image(theme_name):
     file_path = "/home/twa/.config/plasma-org.kde.plasma.desktop-appletsrc"
     
@@ -97,12 +104,100 @@ def change_wallpaper_image(theme_name):
                 elif theme_name == "OceanKDE":
                     content[i] = 'wallpaperplugin=org.kde.image\n'
 
-    
     # Write the updated content back to the file
     with open(file_path, 'w') as file:
         file.writelines(content)
 
     print(f"Wallpaper changed for {theme_name} on both monitors.")
+
+# Function to run a command with sudo and provide input to the command
+def run_with_sudo(command, input_data=None):
+    try:
+        process = subprocess.Popen(
+            ['sudo'] + command, 
+            stdin=subprocess.PIPE, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE, 
+            text=True
+        )
+        # Pass input_data to stdin, capturing the output and errors
+        stdout, stderr = process.communicate(input=input_data)
+        
+        if process.returncode == 0:
+            print(stdout)
+        else:
+            print(f"Error running command with sudo: {stderr}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error running command with sudo: {e}")
+
+# Function to change SDDM login theme (root file)
+def change_sddm_theme(theme_name):
+    sddm_config_path = "/etc/sddm.conf.d/kde_settings.conf"
+    
+    if not os.path.exists(sddm_config_path):
+        print("Warning: SDDM config file does not exist, creating a new one.")
+
+    with open(sddm_config_path, 'r') as file:
+        content = file.readlines()
+
+    theme_found = False
+    for i, line in enumerate(content):
+        if line.startswith("Current="):
+            theme_found = True
+            if theme_name == "PirateKDE":
+                content[i] = "Current=PirateLogin\n"
+            elif theme_name == "OceanKDE":
+                content[i] = "Current=OceanLogin\n"
+            break
+
+    if not theme_found:
+        content.append("\n[Theme]\n")
+        if theme_name == "PirateKDE":
+            content.append("Current=PirateLogin\n")
+        elif theme_name == "OceanKDE":
+            content.append("Current=OceanLogin\n")
+
+    # Write the updated content to the file using sudo
+    print(f"Updating SDDM theme to {theme_name}...")
+    run_with_sudo(['tee', sddm_config_path], input_data="".join(content))
+
+    print(f"SDDM login theme changed to {theme_name}.")
+
+
+
+
+
+
+
+
+
+# Function to change rEFInd boot theme (root file)
+def change_rEFInd_theme(theme_name):
+    rEFInd_config_path = "/boot/EFI/refind/refind.conf"
+    
+    if not os.path.exists(rEFInd_config_path):
+        print("Warning: rEFInd config file does not exist, creating a new one.")
+
+    with open(rEFInd_config_path, 'r') as file:
+        content = file.readlines()
+
+    theme_found = False
+    for i, line in enumerate(content):
+        if line.startswith("include themes/"):
+            theme_found = True
+            if theme_name == "PirateKDE":
+                content[i] = "include themes/pirate/theme.conf\n"
+            elif theme_name == "OceanKDE":
+                content[i] = "include themes/ocean/theme.conf\n"
+            break
+
+    # Write the updated content to the file using sudo
+    print(f"Updating rEFInd theme to {theme_name}...")
+    run_with_sudo(['tee', rEFInd_config_path], input_data="".join(content))
+
+    print(f"rEFInd login theme changed to {theme_name}.")
+
+
 
 # Ensure UTF-8 locale is set
 os.environ["LANG"] = "en_US.UTF-8"
@@ -129,7 +224,13 @@ while True:
         # Change wallpaper plugin based on theme selection
         change_wallpaper_plugin(themes[choice])
 
-    
+        # Change SDDM login theme with root privileges
+        change_sddm_theme(themes[choice])
+        
+        # Change rEFInd login theme with root privileges
+        change_rEFInd_theme(themes[choice])
+
+        
         # Automatically restart Plasma Shell
         os.system("kquitapp5 plasmashell && kstart5 plasmashell")
         
